@@ -7,19 +7,143 @@ output:
 
 
 ## Loading and preprocessing the data
+Let's load the data by using "read.csv" function.
+```{r}
+unzip("activity.zip")
+df = read.csv("activity.csv")
+```
 
+So, we have loaded the dataframe, let's check out the columns.
+```{r}
+str(df)
+```
 
+As we can see the date column is in character class, let's change its datatype into date.
+```{r}
+df[,2] = as.Date(df[,2])
+str(df)
+```
 
 ## What is mean total number of steps taken per day?
+Now let's calculate the total number of steps taken per day.
+```{r}
+dftotal = aggregate(df[,1],list(df[,2]), FUN = sum)
+```
 
+After getting the total steps taken per day, we will now plot the histogram of the new dataframe.
+```{r}
+Freq <- dftotal[,2]
+for(i in seq_along(Freq)){
+    if(is.na(Freq[i])){
+    Freq[i]=0 #replacing NA values with 0
+    }
+}
+Overall.Cond <- 1:(length(Freq)+1)
+myhist <-list(breaks=Overall.Cond, counts=Freq, density=Freq/diff(Overall.Cond),xname="Days(from 1st Oct to 30th Nov)", ylab="No of steps")
+class(myhist) <- "histogram"
+plot(myhist, main = "Histogram of daily steps-1")
+```
 
+Now we have to calculate and report the mean and median of the total number of steps taken per day.
+```{r}
+dfc = df
+for(i in seq_along(dfc[,1])){
+    if(is.na(dfc[i,1])){
+        dfc[i,1]=mean(df[,1],na.rm = TRUE)
+    }
+}
+dfavg = aggregate(dfc[,1],list(dfc[,2]), FUN = mean)
+dfmedian = aggregate(dfc[,1],list(dfc[,2]), FUN = median)
+dfavg = cbind(dfavg,dfmedian[,2])
+names(dfavg) = c("Date","Mean","Median")
+dfavg
+```
 
 ## What is the average daily activity pattern?
+This time, we will find the steps per each 5 minute interval averaged across all days.
+```{r}
+df5min = aggregate(dfc[,1],list(dfc[,3]), FUN = mean)
+names(df5min)[1] = 'Interval'
+head(df5min)
+```
 
+So as we have git the average steps per each interval dataset, let's plot it.
+```{r}
+plot(df5min[,1],df5min[,2], type='l',xlab="Interval",ylab="Average Steps", main = "Plot of steps per each interval")
+```
 
+Now let's find which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps.
+```{r}
+ansmin = df5min[(df5min[,2]==max(df5min[,2])),1]
+ansmin
+```
+
+Thus we found that at interval ``r ansmin`` there is maximum number of steps.
 
 ## Imputing missing values
+Now let's count the total number of missing values in the dataset.
+```{r}
+a=sum(is.na(df[,1]))
+b=sum(is.na(df[,2]))
+c=sum(is.na(df[,3]))
+c(a,b,c)
+```
+
+So there are ``r a`` rows in the dataframe with NAs.
+To clean the dataset, let's replace the NAs with the median value of steps for corresponding day.
+```{r}
+df2 = df
+for(i in seq_along(df2[,1])){
+    if(is.na(df2[i,1])){
+        subset2 = subset(df2,interval==df[i,3])
+        df2[i,1]=as.integer(mean(subset2[,1],na.rm = TRUE))
+    }
+}
+dfavg2 = aggregate(df2[,1],list(df2[,2]), FUN = mean)
+dfmedian2 = aggregate(df2[,1],list(df2[,2]), FUN = median)
+dfavg2 = cbind(dfavg2,dfmedian2[,2])
+names(dfavg2) = c("Date","Mean","Median")
+dfavg2
+```
+As we have calculated the means and medians of total number of steps taken per day, let's make a histogram of the total number of steps taken each day.
+```{r}
+dftotal2 = aggregate(df2[,1],list(df2[,2]), FUN = sum)
+Freq <- dftotal2[,2]
+sum(is.na(Freq))
+Overall.Cond <- 1:(length(Freq)+1)
+myhist <-list(breaks=Overall.Cond, counts=Freq, density=Freq/diff(Overall.Cond),xname="Days(from 1st Oct to 30th Nov)", ylab="No of steps")
+class(myhist) <- "histogram"
+plot(myhist, main = "Histogram of daily steps-2")
+```
+
+The difference between the plots with the 2 different kinds of imputations is not quite noteworthy. 
+
+## Are there differences in activity patterns between weekdays and weekends
 
 
+Now let's create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+df2[,4]=weekdays(df2[,2])
+dayz = unique(df2[,4])
+for(i in seq_along(dayz)){
+  if(i<6){
+    df2[,4]=gsub(dayz[i],"weekday",df2[,4])
+  }
+  else{
+    df2[,4]=gsub(dayz[i],"weekend",df2[,4])
+  }
+}
+df2$V4 = as.factor(df2$V4)
+names(df2)[4] = "daytype"
+```
+
+Having created the 4th column of the day-type, let's make 2 plots of  the average number of steps taken across all weekday days and weekend days per all 5-minute interval.
+
+```{r}
+library(ggplot2)
+dfag = aggregate(df2[,1],list(df2[,3],df2[,4]),FUN=mean)
+qplot(Group.1,x,data=dfag,facets = 'Group.2',geom = 'line',xlab = 'Interval',ylab = 'No. of steps')
+```
+
+We can notice that on weekend days the average steps are more than weekday days, while during peak hours, the number of steps taken is higher on weekdays.
